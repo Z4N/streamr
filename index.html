@@ -1,0 +1,162 @@
+<!DOCTYPE html> 
+<html manifest="site.manifest" >
+  <head>
+    <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+    <meta id="Viewport" name="viewport" content="initial-scale=0.5, maximum-scale=0.5, minimum-scale=0.5, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <title>Streamr</title>
+
+    <link rel="icon" type="image/png" href="img/favicon.png" />
+    <link rel="shortcut icon" sizes="196x196" href="img/icon.png">
+    <link rel="apple-touch-icon" href="img/icon.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="img/touch-icon-ipad.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="img/touch-icon-iphone-retina.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="img/touch-icon-ipad-retina.png">
+    <link rel="stylesheet" href="css/main.css" />
+    <link rel="stylesheet" href="css/hook.css" />
+    <script src="js/jquery-1.11.0.min.js" type="text/javascript"></script>
+    <script src="js/viewport.js" type="text/javascript"></script>
+    <script src="js/hook.min.js" type="text/javascript"></script>
+    <script src="js/online.js" type="text/javascript"></script>
+    <script>
+        // On doit utiliser un service externe pour récupérer le flux rss, ici Google Feeds API
+        if (window.online) {
+            google.load("feeds", "1");
+        }
+    </script>
+    <script>
+        // On initialise la base
+        var db = window.openDatabase("streamr_db", "", "Streamr Database", 1024*1000);
+
+        $(document).ready(function() {
+            // On ajoute le hook pour le refresh on pull
+            $('#hook').hook();
+            
+            // Création de la table où l'on stock les news
+            // NB: le titre de la news est unique et tout insert du même titre sera alors ignoré
+            db.transaction(function(tx) {
+                tx.executeSql('CREATE TABLE IF NOT EXISTS News(id INTEGER PRIMARY KEY, title TEXT UNIQUE ON CONFLICT IGNORE, desc TEXT, author TEXT, date DATE, url TEXT, image_path TEXT, content TEXT)', []);
+            });
+
+            // On doit utiliser un service externe pour récupérer le flux rss, ici Google Feeds API
+            if (window.online) {
+                var feed = new google.feeds.Feed("http://gameblog.fr.feedsportal.com/c/35230/f/655016/index.rss");
+                feed.setNumEntries(15); //On récupère au maximum 15 news
+
+                // On charge le flux via une fonction de callback appellée saveLatestNews
+                feed.load(saveLatestNews);
+            }
+            else
+            {
+                console.log('Application en mode hors-ligne');
+                // On affiche les news déjà en base locale
+                getAllNews();
+            }
+        });
+        
+        // Fonction qui permet de sauvegarder en base les dernières news
+        function saveLatestNews(result)
+        {
+            // On boucle sur la liste de news pour afficher ce que l'on souhaite
+            // L'objet entry represente un item du flux rss, il possède plusieurs propriétées, voir l'url suivante
+            // https://developers.google.com/feed/v1/reference?hl=fr&csw=1#resultJson
+            for (var i = 0; i < result.feed.entries.length; i++) {
+                var entry = result.feed.entries[i];
+                // console.log(entry);
+                // Avec cette expression régulière on récupère l'image seulement
+                match = entry.content.match(/<img[^']*?src=\"([^']*?)\"[^']*?>/);
+                var imgUrl = match[1];
+                var imageName = '';
+                var date    = entry.publishedDate;
+                
+                // On sauvegarde l'image de la news sur le serveur pour le mode Hors ligne
+                $.ajax({
+                    type: 'POST',
+                    async: false, // On foce l'appel de manière synchrone pour bien sauvegarder le nom de l'image
+                    url: 'php/saveNews.php',
+                    data: { image_url: imgUrl, date: date},
+                    dataType: 'json',
+                    success: function(data) {
+                        setImageAndDate(data);
+                    }
+                });
+                function setImageAndDate(data)
+                {
+                    imageName = data.imageName;
+                    date      = data.date;
+                }
+
+                // On récupère le nom de l'auteur qui se situe entre parenthèse dans l'attribut entry.author
+                match = entry.author.match(/\(([^)]+)\)/);
+                var author  = match[1];
+                
+                var title   = entry.title;
+                var desc    = entry.contentSnippet;
+                var url     = entry.link;
+                
+                var imgPath = 'newsImages/'+imageName;
+                
+                saveNews(title, desc, author, date, url, imgPath);
+            }
+            
+            // Maintenant que toutes les news sont en base on les récupère pour  les afficher
+            getAllNews();
+        }
+        
+        // Fonction qui insert la news en base
+        function saveNews(title, desc, author, date, url, imgPath) {            
+            db.transaction(function(tx) {
+                    tx.executeSql('INSERT INTO News(title, desc, author, date, url, image_path) VALUES (?, ?, ?, ?, ?, ?)',
+                    [title, desc, author, date, url, imgPath]);
+            });
+        }
+        
+        // Fonction qui récupère toutes les news en base (au maximum 15) et les renvoi à la fonction d'affichage displayAllNews
+        function getAllNews() {
+          db.transaction(function(tx) {
+              tx.executeSql('SELECT id, title, desc, image_path FROM News ORDER BY date DESC LIMIT 15', [], displayAllNews);
+          });
+        }
+
+        // Affiche toutes les news existantes dans la div "News"
+        function displayAllNews(tx, existingNews) {
+            // On recupère la div où l'on souhaite afficher les news et on initialise une liste
+            $('#content').html('<ul></ul>');
+            for(var i=0; i < existingNews.rows.length; i++) {
+              row = existingNews.rows.item(i);
+              var imgUrl      = row['image_path'];
+              var newsId      = row['id'];
+              var title       = row['title'];
+              var description = row['desc'];
+              //var date = row['date'];
+
+              // On défini une classe differente selon si l'élement est pair ou impair
+              var liClass = 'odd';
+              if(i%2 === 0) {
+                  liClass = 'even';
+              }
+
+              var li = '<li class="'+liClass+'"><a onclick="gotonews('+newsId+')" href="news.html"><img src="'+imgUrl+'" width="200px" />' +
+                   '<h3>'+title+'</h3>' + 
+                   '<p>'+description+'</p></a></li>';
+
+              // Une fois le li de la news créé on l'ajoute à la liste du container principal
+              $('#content ul').append(li);
+            }
+        }
+        
+        function gotonews(newsId)
+        {
+            localStorage.newsId = newsId;
+        }
+
+
+    </script>
+    </head>
+    
+    <body>
+        <div id="hook" class="hook"></div>
+        <div id="content"><div class="loading">Chargement des news<div class="hook-spinner"></div></div></div>
+    </body>
+</html> 

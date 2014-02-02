@@ -1,0 +1,92 @@
+<!DOCTYPE html> 
+<html manifest="site.manifest">  
+  <head>
+    <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+    <meta id="Viewport" name="viewport" content="initial-scale=0.5, maximum-scale=0.5, minimum-scale=0.5, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <title>Streamr</title>
+    
+    <link rel="icon" type="image/png" href="img/favicon.png" />
+    <link rel="shortcut icon" sizes="196x196" href="img/icon.png">
+    <link rel="apple-touch-icon" href="img/icon.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="img/touch-icon-ipad.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="img/touch-icon-iphone-retina.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="img/touch-icon-ipad-retina.png">
+    <link rel="stylesheet" href="css/news.css" />
+    <script src="js/viewport.js" type="text/javascript"></script>
+    <script src="js/jquery-1.11.0.min.js" type="text/javascript"></script>
+    <script src="js/online.js" type="text/javascript"></script>
+    <script>
+        // On initialise la base
+        var db = window.openDatabase("streamr_db", "", "Streamr Database", 1024*1000);
+        // On récupère la variable newsId depuis le localStorage accessible aussi en mode hors-ligne
+        var newsId = localStorage.newsId;
+        
+        $(document).ready(function() {
+            // Récupère la news en base
+            db.transaction(function(tx) {
+                tx.executeSql('SELECT title, content, url, image_path FROM News WHERE id='+ newsId, [], displayNews);
+            });
+
+            // Affiche toutes les news existantes dans la div "News"
+            function displayNews(tx, news) {
+                // On recupère la div où l'on souhaite afficher les news et on initialise une liste
+                row = news.rows.item(0);
+                var title   = row['title'];
+                //var imgUrl  = row['image_path'];
+                var url     = row['url'];
+                var content = row['content'];
+                
+                // On affiche dans la div principal le contenu titre, image et lien vers la news originale
+                $('#content h3').html(title);
+                //$('#image').html('<img src="'+imgUrl+'" /><br/>');
+                $('#link').html('<br/><p><a class="button" href="/streamr/">Retour aux news</a> <a class="button" href="'+url+'">Lire l\'original</a></p>');
+                
+                // Si il n'y a pas de contenu en base pour cette news
+                if(content === null) {
+                    if(window.online)
+                    {
+                        // On récupère et sauvegarde le contenu en ligne dans la base
+                        $.ajax({
+                            type: 'GET',
+                            url: 'php/saveContent.php?url='+url,
+                            dataType: 'text',
+                            success: function(htmlContent) {
+                                setNewsContent(htmlContent);
+                            }
+                        });
+
+                        function setNewsContent(html)
+                        {
+                            // On affiche le contenu récupéré
+                            $('#text').html(html);
+                            // Pour finir on sauvegarde en base le contenu de la news 
+                            db.transaction(function(tx) {
+                                    tx.executeSql('UPDATE News SET content=? WHERE id='+ newsId, [html]);
+                            });
+                        }
+                    }
+                    else {
+                        console.log('Application en mode hors-ligne');
+                        $('#text').html('<div style="text-align: center;"><img src="img/news404.png" /></div>');
+                    }
+                }
+                else {
+                    $('#text').html(content);
+                } 
+            }
+        });
+    </script>
+    </head>
+    
+    <body>
+        <div id="content">
+            <h3></h3>
+            <div id="image"></div>
+            <div id="separator"></div>
+            <div id="text"></div>
+            <div id="link"></div>
+        </div>
+    </body>
+</html> 

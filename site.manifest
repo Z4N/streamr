@@ -1,0 +1,27 @@
+CACHE MANIFEST
+
+# Version 1.6
+index.html
+news.html?id=
+css/main.css
+css/news.css
+css/hook.css
+img/hook-bgs.png
+img/hook-spinner.png
+img/hook-spinner@2x.png
+img/news404.png
+img/icon.png
+img/touch-icon-ipad.png
+img/touch-icon-iphone-retina.png
+img/touch-icon-ipad-retina.png
+js/jquery-1.11.0.min.js
+js/hook.min.js
+js/viewport.js
+newsImages/noimage.jpg
+newsImages/
+
+FALLBACK:
+js/online.js js/offline.js
+
+NETWORK:
+*

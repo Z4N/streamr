@@ -21,7 +21,7 @@
     <script src="js/online.js" type="text/javascript"></script>
     <script>
         // On doit utiliser un service externe pour récupérer le flux rss, ici Google Feeds API
-        if (window.online) {
+        if (localStorage.status === 'online') {
             google.load("feeds", "1");
         }
     </script>
@@ -40,7 +40,7 @@
             });
 
             // On doit utiliser un service externe pour récupérer le flux rss, ici Google Feeds API
-            if (window.online) {
+            if (localStorage.status === 'online') {
                 var feed = new google.feeds.Feed("http://gameblog.fr.feedsportal.com/c/35230/f/655016/index.rss");
                 feed.setNumEntries(15); //On récupère au maximum 15 news
 

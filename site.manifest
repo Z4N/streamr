@@ -1,6 +1,6 @@
 CACHE MANIFEST
 
-# Version 1.6
+# Version 1.9
 index.html
 news.html?id=
 css/main.css
@@ -24,4 +24,5 @@ FALLBACK:
 js/online.js js/offline.js
 
 NETWORK:
+js/ping.js
 *

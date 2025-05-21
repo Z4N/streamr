@@ -41,7 +41,7 @@
 
             // On doit utiliser un service externe pour récupérer le flux rss, ici Google Feeds API
             if (localStorage.status === 'online') {
-                var feed = new google.feeds.Feed("http://gameblog.fr.feedsportal.com/c/35230/f/655016/index.rss");
+                var feed = new google.feeds.Feed("https://www.gameblog.fr/rssmap/rss_all.xml");
                 feed.setNumEntries(15); //On récupère au maximum 15 news
 
                 // On charge le flux via une fonction de callback appellée saveLatestNews
